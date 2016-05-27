@@ -665,8 +665,6 @@ define([
         var link = item.find("a.item_link")
             .attr('href',
                 utils.url_path_join(
-                    'https://app.datascience.com',
-                    'apps',
                     base_url,
                     uri_prefix,
                     utils.encode_uri_components(path)
@@ -679,6 +677,12 @@ define([
         // files, notebooks do
         if (model.type !== "directory") {
             link.attr('target',IPython._target);
+            // make sure the link is fully qualified
+            link.attr('href', utils.url_path_join(
+                'https://app.datascience.com',
+                'apps',
+                link.attr('href')
+            ))
         }
 
         // Add in the date that the file was last modified
