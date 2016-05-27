@@ -658,10 +658,16 @@ define([
         }
 
         item.find(".item_icon").addClass(icon).addClass('icon-fixed-width');
+        // the base url for the notebook
+        var base_url = this.base_url[0] == '/' ? this.base_url.slice(1) : this.base_url
+
+        // construct the link with a fully qualified url
         var link = item.find("a.item_link")
             .attr('href',
                 utils.url_path_join(
-                    this.base_url,
+                    'https://app.datascience.com',
+                    'apps',
+                    base_url,
                     uri_prefix,
                     utils.encode_uri_components(path)
                 )
@@ -841,7 +847,7 @@ define([
                             that.contents.rename(item_path, new_path).then(function() {
                                 // After each move finishes, reload the list.
                                 that.load_list();
-                            }).catch(function(e) { 
+                            }).catch(function(e) {
                                 // If any of the moves fails, show this dialog for that move.
                                 dialog.modal({
                                     title: "Move Failed",
