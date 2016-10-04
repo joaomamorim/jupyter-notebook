@@ -32,4 +32,5 @@ src
 .idea/
 Read the Docs
 config.rst
-
+venv
+.venv
