@@ -55,11 +55,10 @@ define([
             'run_int'],
          ['<add_celltype_list>'],
          [['jupyter-notebook:show-command-palette']],
-         ['<add_celltoolbar_reminder>']
         ];
         this.construct(grps);
     };
-   
+
     MainToolBar.prototype._pseudo_actions = {};
 
 
@@ -69,8 +68,8 @@ define([
         var btn = $('<div/>').addClass('btn-group').append(_b)
 
         _b.on('click', function(){
-            setTimeout(function(){$('#view_menu').parent().addClass('pulse')},0) 
-            setTimeout(function(){$('#view_menu').parent().addClass('open')},1000) 
+            setTimeout(function(){$('#view_menu').parent().addClass('pulse')},0)
+            setTimeout(function(){$('#view_menu').parent().addClass('open')},1000)
             setTimeout(function(){$('#menu-cell-toolbar').children('a').addClass('pulse')},2000)
             setTimeout(function(){$('#menu-cell-toolbar').children('ul').css('display','block')},3000)
             setTimeout(function(){$('#menu-cell-toolbar').children('ul').css('display','')},5400)
@@ -82,7 +81,7 @@ define([
         return btn;
     };
 
-    
+
     // add a cell type drop down to the maintoolbar.
     // triggered when the pseudo action `<add_celltype_list>` is
     // encountered when building a toolbar.
