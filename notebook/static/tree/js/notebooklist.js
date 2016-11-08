@@ -1,6 +1,9 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
+// get the i'th instance of token in str
+function getPosition(str, token, i) { return str.split(token, i).join(token).length; }
+
 define([
     'base/js/namespace',
     'base/js/utils',
@@ -681,10 +684,25 @@ define([
         item.find(".item_buttons .running-indicator").css('visibility', running ? '' : 'hidden');
 
         // directory nav doesn't open new tabs
-        // files, notebooks do
-        // if (model.type !== "directory") {
-        //     link.attr('target',IPython._target);
-        // }
+        if (model.type !== "directory") {
+            // but everything else does
+            link.attr('target',IPython._target);
+
+            // if we are opening the link in a production environment
+            if (window.location.pathname.startsWith('/app/jupyter-')) {
+                // get the path after the jupyter link
+                var newPath = utils.url_path_join(
+                    window.location.hostname,
+                    "app",
+                    "notebooks",
+                    "tree",
+                    uri_prefix,
+                    utils.encode_uri_components(path)
+                )
+                // make sure the protocol is there
+                link.attr('href', "https://" + newPath)
+            }
+        }
 
         // Add in the date that the file was last modified
         item.find(".item_modified").text(moment.utc(modified).fromNow());
