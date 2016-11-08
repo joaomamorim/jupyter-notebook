@@ -7,7 +7,7 @@ define([
     'base/js/dialog',
 ], function (IPython, utils, dialog) {
     "use strict";
-    
+
     var NewNotebookWidget = function (selector, options) {
         this.selector = selector;
         this.base_url = options.base_url;
@@ -22,20 +22,20 @@ define([
         }
         this.bind_events();
     };
-    
+
     NewNotebookWidget.prototype.bind_events = function () {
         var that = this;
         this.element.find('#new_notebook').click(function () {
             that.new_notebook();
         });
     };
-    
+
     NewNotebookWidget.prototype.request_kernelspecs = function () {
         /** request and then load kernel specs */
         var url = utils.url_path_join(this.base_url, 'api/kernelspecs');
         utils.promising_ajax(url).then($.proxy(this._load_kernelspecs, this));
     };
-    
+
     NewNotebookWidget.prototype._load_kernelspecs = function (data) {
         /** load kernelspec list */
         var that = this;
@@ -71,7 +71,7 @@ define([
         }
         this.events.trigger('kernelspecs_loaded.KernelSpec', data.kernelspecs);
     };
-    
+
     NewNotebookWidget.prototype.new_notebook = function (kernel_name) {
         /** create and open a new notebook */
         var that = this;
@@ -83,6 +83,18 @@ define([
                     that.base_url, 'notebooks',
                     utils.encode_uri_components(data.path)
                 );
+
+                // if we are running this in a production environment
+                if (window.location.pathname.startsWith('/app/jupyter-')) {
+                    // change the link to appear under chrome
+                    url = utils.url_path_join(
+                        "app",
+                        "notebooks",
+                        "tree",
+                        url
+                    )
+                }
+
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
                 }
@@ -102,6 +114,6 @@ define([
             });
         });
     };
-    
+
     return {'NewNotebookWidget': NewNotebookWidget};
 });
