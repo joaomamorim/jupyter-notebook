@@ -63,8 +63,8 @@ define([
 
     var register = function (notebook) {
         CellToolbar.register_callback('ds_post_cell.chkb', ds_post_cell)
-        CellToolbar.register_preset('DS Post API', ['ds_post_cell.chkb'], notebook);
-        CellToolbar.activate_preset("DS Post API");
+        CellToolbar.register_preset('DataScience Insights', ['ds_post_cell.chkb'], notebook);
+        CellToolbar.activate_preset("DataScience Insights");
         CellToolbar.global_show();
     };
     return {'register': register};
