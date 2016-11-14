@@ -2998,8 +2998,12 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
         this._checkpoint_after_save = true;
         // grab a commit message for the checkpoint
         var message = prompt("Please enter a commit message:");
-        // create a checkpoint with the provided message
-        this.save_notebook(true, message);
+
+        // if the provided message is null, the user pressed cancel. Don't do anything.
+        if (message !== null) {
+            // create a checkpoint with the provided message
+            this.save_notebook(true, message);
+        }
     };
 
     /**
