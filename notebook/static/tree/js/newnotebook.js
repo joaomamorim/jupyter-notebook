@@ -93,12 +93,12 @@ define([
                         "notebooks",
                         utils.encode_uri_components(data.path)
                     )
-               }
+                }
 
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
                 }
-                var finalURL = "https://" + window.location.hostname + url;
+                var finalURL = "https://" + window.location.hostname + "/" + url;
                 w.location = finalURL;
         }).catch(function (e) {
             w.close();
