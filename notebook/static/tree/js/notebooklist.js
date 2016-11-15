@@ -693,7 +693,6 @@ define([
                 // get the path after the jupyter link
                 var newPath = utils.url_path_join(
                     window.location.hostname,
-                    "app",
                     "notebooks",
                     "tree",
                     uri_prefix,
@@ -701,7 +700,7 @@ define([
                 )
                 // make sure the protocol is there
                 link.attr('href', "https://" + newPath)
-            }
+           }
         }
 
         // Add in the date that the file was last modified

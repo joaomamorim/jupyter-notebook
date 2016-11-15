@@ -86,14 +86,13 @@ define([
 
                 // if we are running this in a production environment
                 if (window.location.pathname.startsWith('/app/jupyter-')) {
-                    // change the link to appear under chrome
                     url = utils.url_path_join(
-                        "app",
                         "notebooks",
                         "tree",
-                        url
+                        "notebooks",
+                        utils.encode_uri_components(data.path)
                     )
-                }
+             }
 
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
