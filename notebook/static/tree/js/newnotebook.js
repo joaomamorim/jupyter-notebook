@@ -84,6 +84,7 @@ define([
                     utils.encode_uri_components(data.path)
                 );
 
+
                 // if we are running this in a production environment
                 if (window.location.pathname.startsWith('/app/jupyter-')) {
                     url = utils.url_path_join(
@@ -92,12 +93,13 @@ define([
                         "notebooks",
                         utils.encode_uri_components(data.path)
                     )
-             }
+               }
 
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
                 }
-                w.location = url;
+                var finalURL = "https://" + window.location.hostname + url;
+                w.location = finalURL;
         }).catch(function (e) {
             w.close();
             dialog.modal({
