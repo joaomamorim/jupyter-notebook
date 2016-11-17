@@ -85,12 +85,9 @@ define([
                 );
 
                 if (window.location.hostname.contains("localhost")) {
+                    // hackzilla
                     var url = utils.url_path_join(
-                        window.location.hostname,
-                        ":",
-                        window.location.port,
-                        window.location.pathname,
-                        'notebooks',
+                        document.getElementById("iframe_id").src,
                         utils.encode_uri_components(data.path)
                     );
                 }
