@@ -84,9 +84,18 @@ define([
                     utils.encode_uri_components(data.path)
                 );
 
-
+                if (window.location.hostname.contains("localhost")) {
+                    var url = utils.url_path_join(
+                        window.location.hostname,
+                        ":",
+                        window.location.port,
+                        window.location.pathname,
+                        'notebooks',
+                        utils.encode_uri_components(data.path)
+                    );
+                }
                 // if we are running this in a production environment
-                if (window.location.hostname.contains('datascience.com')) {
+                else if (window.location.hostname.contains('datascience.com')) {
                     url = utils.url_path_join(
                         "notebooks",
                         "tree",
