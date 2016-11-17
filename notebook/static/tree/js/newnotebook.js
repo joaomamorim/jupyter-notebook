@@ -86,9 +86,8 @@ define([
 
 
                 // if we are running this in a production environment
-                if (window.location.pathname.startsWith('/app/jupyter-')) {
+                if (window.location.hostname.contains('datascience.com')) {
                     url = utils.url_path_join(
-                        that.base_url,
                         "notebooks",
                         "tree",
                         "notebooks",
