@@ -80,23 +80,29 @@ define([
         this.contents.new_untitled(that.notebook_path, {type: "notebook"}).then(
             function (data) {
                 var url = utils.url_path_join(
-                    that.base_url, 'notebooks',
+                    that.base_url, 'notebooks-breaking-test',
                     utils.encode_uri_components(data.path)
                 );
 
                 if (window.location.hostname.contains("localhost")) {
                     // hackzilla
+                    try {
                     var url = utils.url_path_join(
                         document.getElementById("iframe_id").src,
                         utils.encode_uri_components(data.path)
                     );
+                    }
+                    catch(err) {
+                        // this implies local but no iframe was found.
+                        // default to vanilla Jupyter url.
+                    }
                 }
                 // if we are running this in a production environment
                 else if (window.location.hostname.contains('datascience.com')) {
                     url = utils.url_path_join(
                         "notebooks",
                         "tree",
-                        "notebooks",
+                        "notebooks-breaking-test",
                         utils.encode_uri_components(data.path)
                     )
                 }
