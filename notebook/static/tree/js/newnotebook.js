@@ -80,38 +80,34 @@ define([
         this.contents.new_untitled(that.notebook_path, {type: "notebook"}).then(
             function (data) {
                 var url = utils.url_path_join(
-                    that.base_url, 'notebooks-breaking-test',
+                    that.base_url, 'notebooks',
                     utils.encode_uri_components(data.path)
                 );
-
-                if (window.location.hostname.contains("localhost")) {
-                    // hackzilla
-                    try {
-                    var url = utils.url_path_join(
-                        document.getElementById("iframe_id").src,
-                        utils.encode_uri_components(data.path)
-                    );
-                    }
-                    catch(err) {
-                        // this implies local but no iframe was found.
-                        // default to vanilla Jupyter url.
-                    }
-                }
                 // if we are running this in a production environment
-                else if (window.location.hostname.contains('datascience.com')) {
+                if (window.location.hostname.includes('datascience.com')) {
                     url = utils.url_path_join(
                         "notebooks",
                         "tree",
-                        "notebooks-breaking-test",
+                        "notebooks",
                         utils.encode_uri_components(data.path)
-                    )
+                    );
+                    url = "https://" +  window.location.hostname + "/" + url;
+                }
+                else if(window.location.hostname.includes("localhost") && window.location.port != "8888") {
+                    var hard_coded_notebook_spawner_port = 8282;
+                    url = utils.url_path_join(
+                        "notebooks",
+                        "tree",
+                        "notebooks",
+                        utils.encode_uri_components(data.path)
+                    );
+                    url = window.location.hostname + ":" + hard_coded_notebook_spawner_port + "/" + url;
                 }
 
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
-                }
-                var finalURL = "https://" + window.location.hostname + "/" + url;
-                w.location = finalURL;
+	              }
+                w.location = url;
         }).catch(function (e) {
             w.close();
             dialog.modal({
