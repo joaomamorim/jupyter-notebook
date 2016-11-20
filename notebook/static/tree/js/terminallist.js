@@ -93,7 +93,38 @@ define([
         item.find(".item_icon").addClass("fa fa-terminal");
         var link = item.find("a.item_link")
             .attr('href', utils.url_path_join(this.base_url, "terminals",
-                utils.encode_uri_components(name)));
+                                              utils.encode_uri_components(name)));
+        // Production fix
+        if (window.location.hostname.includes("datascience.com")) {
+            var terminal_link_base_path = utils.url_path_join(
+                "notebooks",
+                "tree",
+                "terminals",
+                utils.encode_uri_components(name)
+            );
+            var terminal_link_path =
+                "https://" + window.location.hostname + "/" + terminal_link_base_path;
+            var link = item.find("a.item_link")
+                .attr('href', terminal_link_path);
+        }
+        else if (window.location.hostname.includes("localhost")
+                 && window.location.port != "8888"
+                ) {
+            var terminal_link_base_path = utils.url_path_join(
+                "notebooks",
+                "tree",
+                "terminals",
+                utils.encode_uri_components(name)
+            );
+            var terminal_link_path =
+                window.location.hostname + ":" + window.location.port +  "/" +
+                  terminal_link_base_path;
+            var link = item.find("a.item_link")
+                .attr('href', terminal_link_path);
+        }
+
+
+
         link.attr('target', IPython._target||'_blank');
         this.add_shutdown_button(name, item);
     };

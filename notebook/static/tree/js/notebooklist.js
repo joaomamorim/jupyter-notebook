@@ -689,18 +689,35 @@ define([
             link.attr('target',IPython._target);
 
             // if we are opening the link in a production environment
-            if (window.location.pathname.startsWith('/app/jupyter-')) {
+            if (window.location.hostname.includes("datascience.com")) {
                 // get the path after the jupyter link
-                var newPath = utils.url_path_join(
-                    window.location.hostname,
+                var new_path = utils.url_path_join(
                     "notebooks",
                     "tree",
                     uri_prefix,
                     utils.encode_uri_components(path)
-                )
+                );
                 // make sure the protocol is there
-                link.attr('href', "https://" + newPath)
-           }
+                link.attr('href', "https://" + window.location.hostname + "/" + newPath);
+             }
+            else if (window.location.hostname.includes("localhost")
+                     && window.location.port != "8888"
+              ) {
+                // get the path after the jupyter link
+              var hard_coded_notebook_spawner_port = "8282";
+              var new_path = utils.url_path_join(
+                "notebooks",
+                "tree",
+                uri_prefix,
+                utils.encode_uri_components(path)
+              );
+                // make sure the protocol is there
+                link.attr('href',
+                          window.location.hostname + ":" + hard_coded_notebooks_spawner_port +
+                          "/" + new_path
+                );
+            }
+
         }
 
         // Add in the date that the file was last modified
