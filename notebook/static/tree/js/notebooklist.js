@@ -702,7 +702,7 @@ define([
              }
             else if (window.location.hostname.includes("localhost")) {
                 // get the path after the jupyter link
-              var hard_coded_notebook_spawner_port = "8282";
+              var nb_spawner_port = "8282";
               var new_path = utils.url_path_join(
                 "notebooks",
                 "tree",
@@ -710,7 +710,7 @@ define([
                 utils.encode_uri_components(path)
               );
                 link.attr('href',
-                          "http://" + window.location.hostname + ":" + hard_coded_notebooks_spawner_port +
+                          "http://" + window.location.hostname + ":" + nb_spawner_port +
                           "/" + new_path
                 );
             }
