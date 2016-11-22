@@ -93,7 +93,7 @@ define([
                     );
                     url = "https://" +  window.location.hostname + "/" + url;
                 }
-                else if(window.location.hostname.includes("localhost") && window.location.port != "8888") {
+                else if(window.location.hostname.includes("localhost")) {
                     var hard_coded_notebook_spawner_port = 8282;
                     url = utils.url_path_join(
                         "notebooks",
@@ -101,7 +101,7 @@ define([
                         "notebooks",
                         utils.encode_uri_components(data.path)
                     );
-                    url = window.location.hostname + ":" + hard_coded_notebook_spawner_port + "/" + url;
+                    url = "http://" + window.location.hostname + ":" + hard_coded_notebook_spawner_port + "/" + url;
                 }
 
                 if (kernel_name) {

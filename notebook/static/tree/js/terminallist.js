@@ -107,9 +107,8 @@ define([
             var link = item.find("a.item_link")
                 .attr('href', terminal_link_path);
         }
-        else if (window.location.hostname.includes("localhost")
-                 && window.location.port != "8888"
-                ) {
+        else if (window.location.hostname.includes("localhost")) {
+            var hardcoded_spawner_port = "8282";
             var terminal_link_base_path = utils.url_path_join(
                 "notebooks",
                 "tree",
@@ -117,7 +116,7 @@ define([
                 utils.encode_uri_components(name)
             );
             var terminal_link_path =
-                window.location.hostname + ":" + window.location.port +  "/" +
+                "http://" + window.location.hostname + ":" + hardcoded_spawner_port +  "/" +
                   terminal_link_base_path;
             var link = item.find("a.item_link")
                 .attr('href', terminal_link_path);
