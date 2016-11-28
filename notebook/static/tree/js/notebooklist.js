@@ -698,7 +698,7 @@ define([
                     utils.encode_uri_components(path)
                 );
                 // make sure the protocol is there
-                link.attr('href', "https://" + window.location.hostname + "/" + newPath);
+                link.attr('href', "https://" + window.location.hostname + "/" + new_path);
              }
             else if (window.location.hostname.includes("localhost")) {
                 // get the path after the jupyter link
