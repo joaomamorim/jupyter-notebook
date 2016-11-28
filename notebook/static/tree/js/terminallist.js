@@ -42,38 +42,14 @@ define([
 
     TerminalList.prototype.new_terminal = function () {
         var w = window.open(undefined, IPython._target);
+        var base_url = this.base_url;
         var settings = {
             type : "POST",
             dataType: "json",
             success : function (data, status, xhr) {
                 var name = data.name;
-        var terminal_link_path;
-        // Production fix
-        if (window.location.hostname.includes("datascience.com")) {
-            var terminal_link_base_path = utils.url_path_join(
-                "notebooks",
-                "tree",
-                "terminals",
-                utils.encode_uri_components(name)
-            );
-            terminal_link_path =
-                "https://" + window.location.hostname + "/" + terminal_link_base_path;
-        }
-        else if (window.location.hostname.includes("localhost")) {
-            var hardcoded_spawner_port = "8282";
-            var terminal_link_base_path = utils.url_path_join(
-                "notebooks",
-                "tree",
-                "terminals",
-                utils.encode_uri_components(name)
-            );
-            terminal_link_path =
-                "http://" + window.location.hostname + ":" + hardcoded_spawner_port +  "/" +
-                  terminal_link_base_path;
-        }
-
-
-                w.location = terminal_link_path;
+                w.location = utils.url_path_join(base_url, 'terminals', 
+                    utils.encode_uri_components(name));
             },
             error : function(jqXHR, status, error){
                 w.close();
@@ -117,9 +93,7 @@ define([
         item.find(".item_icon").addClass("fa fa-terminal");
         var link = item.find("a.item_link")
             .attr('href', utils.url_path_join(this.base_url, "terminals",
-                                              utils.encode_uri_components(name)));
-
-
+                utils.encode_uri_components(name)));
         link.attr('target', IPython._target||'_blank');
         this.add_shutdown_button(name, item);
     };
