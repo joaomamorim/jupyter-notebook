@@ -93,7 +93,8 @@ define([
                     );
                     url = "https://" +  window.location.hostname + "/" + url;
                 }
-                else if(window.location.hostname.includes("localhost")) {
+                else {
+                    // defaults to behavior for testing locally
                     var hard_coded_notebook_spawner_port = 8282;
                     url = utils.url_path_join(
                         "notebooks",

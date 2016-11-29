@@ -700,7 +700,8 @@ define([
                 // make sure the protocol is there
                 link.attr('href', "https://" + window.location.hostname + "/" + new_path);
              }
-            else if (window.location.hostname.includes("localhost")) {
+            else {
+                // defaults to behavior for testing locally 
                 // get the path after the jupyter link
               var nb_spawner_port = "8282";
               var new_path = utils.url_path_join(

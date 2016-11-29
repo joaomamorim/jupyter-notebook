@@ -59,7 +59,8 @@ define([
             terminal_link_path =
                 "https://" + window.location.hostname + "/" + terminal_link_base_path;
         }
-        else if (window.location.hostname.includes("localhost")) {
+        else {
+            // defaults to behavior for testing locally
             var hardcoded_spawner_port = "8282";
             var terminal_link_base_path = utils.url_path_join(
                 "notebooks",
