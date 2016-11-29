@@ -83,23 +83,32 @@ define([
                     that.base_url, 'notebooks',
                     utils.encode_uri_components(data.path)
                 );
-
-
                 // if we are running this in a production environment
-                if (window.location.pathname.startsWith('/app/jupyter-')) {
+                if (window.location.hostname.includes('datascience.com')) {
                     url = utils.url_path_join(
                         "notebooks",
                         "tree",
                         "notebooks",
                         utils.encode_uri_components(data.path)
-                    )
+                    );
+                    url = "https://" +  window.location.hostname + "/" + url;
+                }
+                else {
+                    // defaults to behavior for testing locally
+                    var hard_coded_notebook_spawner_port = 8282;
+                    url = utils.url_path_join(
+                        "notebooks",
+                        "tree",
+                        "notebooks",
+                        utils.encode_uri_components(data.path)
+                    );
+                    url = "http://" + window.location.hostname + ":" + hard_coded_notebook_spawner_port + "/" + url;
                 }
 
                 if (kernel_name) {
                     url += "?kernel_name=" + kernel_name;
-                }
-                var finalURL = "https://" + window.location.hostname + "/" + url;
-                w.location = finalURL;
+	              }
+                w.location = url;
         }).catch(function (e) {
             w.close();
             dialog.modal({
