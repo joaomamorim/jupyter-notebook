@@ -701,7 +701,7 @@ define([
                 link.attr('href', "https://" + window.location.hostname + "/" + new_path);
              }
             else {
-                // defaults to behavior for testing locally 
+                // defaults to behavior for testing locally
                 // get the path after the jupyter link
               var nb_spawner_port = "8282";
               var new_path = utils.url_path_join(
@@ -719,8 +719,16 @@ define([
         }
 
         // Add in the date that the file was last modified
-        item.find(".item_modified").text(moment.utc(modified).fromNow());
-        item.find(".item_modified").attr("title", moment(modified).format("YYYY-MM-DD HH:mm"));
+        var momentObj = moment();
+
+        if (modified) {
+          momentObj = moment.utc(modified, "YYYY-MM-DD HH:mm:ss.S");
+          item.find(".item_modified").text(momentObj.fromNow());
+          item.find(".item_modified").attr("title", momentObj.local().format("YYYY-MM-DD HH:mm"));
+        } else {
+          // No text for dirs - however keep title attr so sorting func does not break
+          item.find(".item_modified").attr("title", momentObj.local().format("YYYY-MM-DD HH:mm"));
+        }
     };
 
 
