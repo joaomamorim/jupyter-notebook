@@ -933,23 +933,19 @@ define([
         if (that.selected.length !== 1){
             return;
         }
-        function build_path(s1, s2) {
-            return s1 + "/" + s2;
-        };
 
         var item_path = that.selected[0].path;
-        var split_path_nblist = window.location.pathname.split("/");
 
-        // Warning! This change assumes that the path will be like '/app/jupyter-<user>/...'
         //window.open(utils.url_path_join('/files', item_path) + '?download=1');
+
+        // Datascience specific 
         window.open(
-          [
-            window.location.origin,
-            split_path_nblist[1],
-            split_path_nblist[2],
-            "files",
-            item_path
-           ].reduce(build_path) + "?download=1"
+          window.location.origin +
+          $('iframe, body').attr('data-base-url') +
+          "files" + 
+          "/" +
+          item_path +
+          "?download=1"
         );
     };
 
