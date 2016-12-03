@@ -314,8 +314,14 @@ define([
             }
             nnw.set_message(msg, 2000);
         });
-        this.events.on('checkpoint_failed.Notebook', function () {
-            nnw.warning("Checkpoint failed");
+        this.events.on('checkpoint_failed.Notebook', function(_, { message }) {
+            var errorMsg = "Checkpoint failed";
+
+            if (message && message === "Commit message already exists") {
+              errorMsg = "Commit message already exists";
+            }
+
+            nnw.warning(errorMsg);
         });
         this.events.on('checkpoint_deleted.Notebook', function () {
             nnw.set_message("Checkpoint deleted", 500);
