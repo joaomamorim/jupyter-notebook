@@ -6,16 +6,16 @@ define([
 ], function(utils, dialog, notificationarea, moment) {
     "use strict";
     var NotificationArea = notificationarea.NotificationArea;
-    
+
     var NotebookNotificationArea = function(selector, options) {
         NotificationArea.apply(this, [selector, options]);
         this.save_widget = options.save_widget;
         this.notebook = options.notebook;
         this.keyboard_manager = options.keyboard_manager;
     };
-    
+
     NotebookNotificationArea.prototype = Object.create(NotificationArea.prototype);
-    
+
     /**
      * Initialize the default set of notification widgets.
      *
@@ -196,7 +196,7 @@ define([
 
             showMsg();
         });
-        
+
         this.events.on("no_kernel.Kernel", function (evt, data) {
             $("#kernel_indicator").find('.kernel_indicator_name').text("No Kernel");
         });
@@ -271,7 +271,7 @@ define([
             });
         });
 
-        
+
         // Start the kernel indicator in the busy state, and send a kernel_info request.
         // When the kernel_info reply arrives, the kernel is idle.
         $kernel_ind_icon.attr('class','kernel_busy_icon').attr('title','Kernel Busy');
@@ -304,12 +304,12 @@ define([
         this.events.on('notebook_copy_failed.Notebook', function (evt, error) {
             nnw.warning(error.message || "Notebook copy failed");
         });
-        
+
         // Checkpoint events
         this.events.on('checkpoint_created.Notebook', function (evt, data) {
             var msg = "Checkpoint created";
             if (data.last_modified) {
-                var d = new Date(data.last_modified);
+                var d = moment.utc(data.last_modified, "YYYY-MM-DD HH:mm:ss.S").toDate()
                 msg = msg + ": " + moment(d).format("HH:mm:ss");
             }
             nnw.set_message(msg, 2000);

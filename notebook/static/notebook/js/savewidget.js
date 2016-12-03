@@ -156,16 +156,16 @@ define([
 
     SaveWidget.prototype._set_last_checkpoint = function (checkpoint) {
         if (checkpoint) {
-            this._checkpoint_date = new Date(checkpoint.last_modified);
+            this._checkpoint_date = moment.utc(checkpoint.last_modified, "YYYY-MM-DD HH:mm:ss.S").toDate();
         } else {
             this._checkpoint_date = null;
         }
         this._render_checkpoint();
     };
-    
+
     SaveWidget.prototype._render_checkpoint = function () {
         /** actually set the text in the element, from our _checkpoint value
-        
+
         called directly, and periodically in timeouts.
         */
         this._schedule_render_checkpoint();
@@ -182,17 +182,17 @@ define([
             // less than 24 hours old, use relative date
             human_date = chkd.fromNow();
         } else {
-            // otherwise show calendar 
+            // otherwise show calendar
             // <Today | yesterday|...> at hh,mm,ss
             human_date = chkd.calendar();
         }
         el.text('Last Checkpoint: ' + human_date).attr('title', long_date);
     };
 
-    
+
     SaveWidget.prototype._schedule_render_checkpoint = function () {
         /** schedule the next update to relative date
-        
+
         periodically updated, so short values like 'a few seconds ago' don't get stale.
         */
         if (!this._checkpoint_date) {
