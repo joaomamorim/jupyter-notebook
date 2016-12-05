@@ -314,8 +314,8 @@ define([
             }
             nnw.set_message(msg, 2000);
         });
-        this.events.on('checkpoint_failed.Notebook', function () {
-            nnw.warning("Checkpoint failed");
+        this.events.on('checkpoint_failed.Notebook', function (evt, error) {
+            nnw.warning(error.message + " checkpoint failed" || "Checkpoint failed", 2000);
         });
         this.events.on('checkpoint_deleted.Notebook', function () {
             nnw.set_message("Checkpoint deleted", 500);
