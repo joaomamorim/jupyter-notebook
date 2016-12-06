@@ -368,7 +368,7 @@ class IPythonHandler(AuthenticatedHandler):
             self.log.debug("No template for %d", status_code)
             html = self.render_template('error.html', **ns)
         
-        self.write(html)
+        #self.write(html)
 
 
 class APIHandler(IPythonHandler):
