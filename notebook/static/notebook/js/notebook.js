@@ -163,15 +163,65 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
         attachments_celltoolbar.register(this);
         keep_summary_celltoolbar.register(this);
 
+        var that = this;
+
+        Object.defineProperty(this, 'line_numbers', {
+            get: function() {
+                var d = that.config.data || {};
+                var cmc =  (d['Cell'] || {}) ['cm_config'] || {};
+                return cmc['lineNumbers'] || false;
+            },
+            set: function(value) {
+                that.config.update({
+                    'Cell': {
+                        'cm_config': {
+                            'lineNumbers':value
+                        }
+                    }
+                });
+            }
+        });
+        
+        Object.defineProperty(this, 'header', {
+            get: function() {
+                return that.class_config.get_sync('Header');
+            },
+            set: function(value) {
+                that.class_config.set('Header', value);
+            }
+        });
+                
+        Object.defineProperty(this, 'toolbar', {
+            get: function() {
+                return that.class_config.get_sync('Toolbar');
+            },
+            set: function(value) {
+                that.class_config.set('Toolbar', value);
+            }
+        });
+        
+        this.class_config.get('Header').then(function(header) {
+            if (header === false) {
+                that.keyboard_manager.actions.call('jupyter-notebook:hide-header');
+            }
+        });
+        
+        this.class_config.get('Toolbar').then(function(toolbar) {
+          if (toolbar === false) {
+              that.keyboard_manager.actions.call('jupyter-notebook:hide-toolbar');
+          }
+        });
+        
         // prevent assign to miss-typed properties.
         Object.seal(this);
     };
 
-
     Notebook.options_default = {
         // can be any cell type, or the special values of
         // 'above', 'below', or 'selected' to get the value from another cell.
-        default_cell_type: 'code'
+        default_cell_type: 'code',
+        Header: true,
+        Toolbar: true
     };
 
     /**
@@ -256,10 +306,8 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
             if (!existing_spec || ! _.isEqual(existing_spec, that.metadata.kernelspec)) {
                 that.set_dirty(true);
             }
-            // start session if the current session isn't already correct
-            if (!(that.session && that.session.kernel && that.session.kernel.name === data.name)) {
-                that.start_session(data.name);
-            }
+            // start a new session
+            that.start_session(data.name);
         });
 
         this.events.on('kernel_ready.Kernel', function(event, data) {
@@ -480,7 +528,8 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
      * @return {jQuery} A selector of all cell elements
      */
     Notebook.prototype.get_cell_elements = function () {
-        return this.container.find(".cell").not('.cell .cell');
+        var container = this.container || $('#notebook-container')
+        return container.find(".cell").not('.cell .cell');
     };
 
     /**
@@ -558,6 +607,13 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
             result = this.get_cell(index+1);
         }
         return result;
+    };
+    
+    /**
+     * Toggles the display of line numbers in all cells.
+     */
+    Notebook.prototype.toggle_all_line_numbers = function () {
+        this.line_numbers = !this.line_numbers;
     };
 
     /**
@@ -1586,6 +1642,18 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
             first_inserted.focus_cell();
         }
     };
+    
+    /**
+     * Re-render the output of a CodeCell.
+     */
+    Notebook.prototype.render_cell_output = function (code_cell) {
+        var cell_data = code_cell.toJSON();
+        var cell_index = this.find_cell_index(code_cell);
+        var trusted = code_cell.output_area.trusted;
+        this.clear_output(cell_index);
+        code_cell.output_area.trusted = trusted;
+        code_cell.fromJSON(cell_data);
+    };
 
     // Split/merge
 
@@ -2075,7 +2143,7 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
         var success = $.proxy(this._session_started, this);
         var failure = $.proxy(this._session_start_failed, this);
 
-        if (this.session !== null) {
+        if (this.session && this.session.kernel) {
             this.session.restart(options, success, failure);
         } else {
             this.session = new session.Session(options);
@@ -2683,7 +2751,7 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
                 " Selecting trust will immediately reload this notebook in a trusted state."
             ).append(
                 " For more information, see the "
-            ).append($("<a>").attr("href", "http://ipython.org/ipython-doc/2/notebook/security.html")
+            ).append($("<a>").attr("href", "https://jupyter-notebook.readthedocs.io/en/latest/security.html")
                 .text("Jupyter security documentation")
             ).append(".")
         );
@@ -3172,4 +3240,3 @@ import {ShortcutEditor} from 'notebook/js/shortcuteditor';
         this.events.trigger('checkpoint_deleted.Notebook');
         this.load_notebook(this.notebook_path);
     };
-

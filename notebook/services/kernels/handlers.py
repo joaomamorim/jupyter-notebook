@@ -8,6 +8,8 @@ Preliminary documentation at https://github.com/ipython/ipython/wiki/IPEP-16%3A-
 
 import json
 import logging
+from textwrap import dedent
+
 from tornado import gen, web
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
@@ -16,23 +18,23 @@ from jupyter_client.jsonutil import date_default
 from ipython_genutils.py3compat import cast_unicode
 from notebook.utils import url_path_join, url_escape
 
-from ...base.handlers import IPythonHandler, APIHandler, json_errors
+from ...base.handlers import APIHandler, json_errors
 from ...base.zmqhandlers import AuthenticatedZMQStreamHandler, deserialize_binary_message
 
 from jupyter_client import protocol_version as client_protocol_version
 
 class MainKernelHandler(APIHandler):
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def get(self):
         km = self.kernel_manager
         kernels = yield gen.maybe_future(km.list_kernels())
         self.finish(json.dumps(kernels))
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def post(self):
         km = self.kernel_manager
@@ -54,16 +56,16 @@ class MainKernelHandler(APIHandler):
 
 class KernelHandler(APIHandler):
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     def get(self, kernel_id):
         km = self.kernel_manager
         km._check_kernel_id(kernel_id)
         model = km.kernel_model(kernel_id)
         self.finish(json.dumps(model))
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def delete(self, kernel_id):
         km = self.kernel_manager
@@ -74,8 +76,8 @@ class KernelHandler(APIHandler):
 
 class KernelActionHandler(APIHandler):
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def post(self, kernel_id, action):
         km = self.kernel_manager
@@ -96,6 +98,11 @@ class KernelActionHandler(APIHandler):
 
 
 class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
+    
+    # class-level registry of open sessions
+    # allows checking for conflict on session-id,
+    # which is used as a zmq identity and must be unique.
+    _open_sessions = {}
 
     @property
     def kernel_info_timeout(self):
@@ -103,11 +110,11 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
 
     @property
     def iopub_msg_rate_limit(self):
-        return self.settings.get('iopub_msg_rate_limit', None)
+        return self.settings.get('iopub_msg_rate_limit', 0)
 
     @property
     def iopub_data_rate_limit(self):
-        return self.settings.get('iopub_data_rate_limit', None)
+        return self.settings.get('iopub_data_rate_limit', 0)
 
     @property
     def rate_limit_window(self):
@@ -194,6 +201,8 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
         self.kernel_id = None
         self.kernel_info_channel = None
         self._kernel_info_future = Future()
+        self._close_future = Future()
+        self.session_key = ''
 
         # Rate limiting code
         self._iopub_window_msg_count = 0
@@ -209,6 +218,8 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
     def pre_get(self):
         # authenticate first
         super(ZMQChannelsHandler, self).pre_get()
+        # check session collision:
+        yield self._register_session()
         # then request kernel info, waiting up to a certain time before giving up.
         # We don't want to wait forever, because browsers don't take it well when
         # servers never respond to websocket connection requests.
@@ -231,6 +242,21 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
     def get(self, kernel_id):
         self.kernel_id = cast_unicode(kernel_id, 'ascii')
         yield super(ZMQChannelsHandler, self).get(kernel_id=kernel_id)
+    
+    @gen.coroutine
+    def _register_session(self):
+        """Ensure we aren't creating a duplicate session.
+        
+        If a previous identical session is still open, close it to avoid collisions.
+        This is likely due to a client reconnecting from a lost network connection,
+        where the socket on our side has not been cleaned up yet.
+        """
+        self.session_key = '%s:%s' % (self.kernel_id, self.session.session)
+        stale_handler = self._open_sessions.get(self.session_key)
+        if stale_handler:
+            self.log.warning("Replacing stale connection: %s", self.session_key)
+            yield stale_handler.close()
+        self._open_sessions[self.session_key] = self
     
     def open(self, kernel_id):
         super(ZMQChannelsHandler, self).open()
@@ -274,7 +300,7 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
         def write_stderr(error_message):
             self.log.warning(error_message)
             msg = self.session.msg("stream",
-                content={"text": error_message, "name": "stderr"},
+                content={"text": error_message + '\n', "name": "stderr"},
                 parent=parent
             )
             msg['channel'] = 'iopub'
@@ -282,6 +308,16 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
             
         channel = getattr(stream, 'channel', None)
         msg_type = msg['header']['msg_type']
+
+        if channel == 'iopub' and msg_type == 'status' and msg['content'].get('execution_state') == 'idle':
+            # reset rate limit counter on status=idle,
+            # to avoid 'Run All' hitting limits prematurely.
+            self._iopub_window_byte_queue = []
+            self._iopub_window_msg_count = 0
+            self._iopub_window_byte_count = 0
+            self._iopub_msgs_exceeded = False
+            self._iopub_data_exceeded = False
+
         if channel == 'iopub' and msg_type not in {'status', 'comm_open', 'execute_input'}:
             
             # Remove the counts queued for removal.
@@ -296,7 +332,7 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
                     # This part of the queue hasn't be reached yet, so we can
                     # abort the loop.
                     break
-                    
+
             # Increment the bytes and message count
             self._iopub_window_msg_count += 1
             byte_count = sum([len(x) for x in msg_list])
@@ -312,44 +348,57 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
             data_rate = float(self._iopub_window_byte_count) / self.rate_limit_window
             
             # Check the msg rate
-            if self.iopub_msg_rate_limit is not None and msg_rate > self.iopub_msg_rate_limit and self.iopub_msg_rate_limit > 0:
+            if self.iopub_msg_rate_limit > 0 and msg_rate > self.iopub_msg_rate_limit:
                 if not self._iopub_msgs_exceeded:
                     self._iopub_msgs_exceeded = True
-                    write_stderr("""iopub message rate exceeded.  The
-                    notebook server will temporarily stop sending iopub
-                    messages to the client in order to avoid crashing it.
+                    write_stderr(dedent("""\
+                    IOPub message rate exceeded.
+                    The notebook server will temporarily stop sending output
+                    to the client in order to avoid crashing it.
                     To change this limit, set the config variable
-                    `--NotebookApp.iopub_msg_rate_limit`.""")
-                    return
+                    `--NotebookApp.iopub_msg_rate_limit`."""))
             else:
-                if self._iopub_msgs_exceeded:
+                # resume once we've got some headroom below the limit
+                if self._iopub_msgs_exceeded and msg_rate < (0.8 * self.iopub_msg_rate_limit):
                     self._iopub_msgs_exceeded = False
                     if not self._iopub_data_exceeded:
                         self.log.warning("iopub messages resumed")
-    
+
             # Check the data rate
-            if self.iopub_data_rate_limit is not None and data_rate > self.iopub_data_rate_limit and self.iopub_data_rate_limit > 0:
+            if self.iopub_data_rate_limit > 0 and data_rate > self.iopub_data_rate_limit:
                 if not self._iopub_data_exceeded:
                     self._iopub_data_exceeded = True
-                    write_stderr("""iopub data rate exceeded.  The
-                    notebook server will temporarily stop sending iopub
-                    messages to the client in order to avoid crashing it.
+                    write_stderr(dedent("""\
+                    IOPub data rate exceeded.
+                    The notebook server will temporarily stop sending output
+                    to the client in order to avoid crashing it.
                     To change this limit, set the config variable
-                    `--NotebookApp.iopub_data_rate_limit`.""")
-                    return
+                    `--NotebookApp.iopub_data_rate_limit`."""))
             else:
-                if self._iopub_data_exceeded:
+                # resume once we've got some headroom below the limit
+                if self._iopub_data_exceeded and data_rate < (0.8 * self.iopub_data_rate_limit):
                     self._iopub_data_exceeded = False
                     if not self._iopub_msgs_exceeded:
                         self.log.warning("iopub messages resumed")
         
             # If either of the limit flags are set, do not send the message.
             if self._iopub_msgs_exceeded or self._iopub_data_exceeded:
+                # we didn't send it, remove the current message from the calculus
+                self._iopub_window_msg_count -= 1
+                self._iopub_window_byte_count -= byte_count
+                self._iopub_window_byte_queue.pop(-1)
                 return
         super(ZMQChannelsHandler, self)._on_zmq_reply(stream, msg)
 
+    def close(self):
+        super(ZMQChannelsHandler, self).close()
+        return self._close_future
 
     def on_close(self):
+        self.log.debug("Websocket closed %s", self.session_key)
+        # unregister myself as an open session (only if it's really me)
+        if self._open_sessions.get(self.session_key) is self:
+            self._open_sessions.pop(self.session_key)
         km = self.kernel_manager
         if self.kernel_id in km:
             km.remove_restart_callback(
@@ -370,6 +419,7 @@ class ZMQChannelsHandler(AuthenticatedZMQStreamHandler):
                 socket.close()
         
         self.channels = {}
+        self._close_future.set_result(None)
 
     def _send_status_message(self, status):
         msg = self.session.msg("status",

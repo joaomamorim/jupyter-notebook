@@ -67,7 +67,7 @@ Models may contain the following entries:
 .. _modelcontent:
 
 Certain model fields vary in structure depending on the ``type`` field of the
-model.  There are three model types: **notebook**, **file**, and **directory** .
+model. There are three model types: **notebook**, **file**, and **directory**.
 
 - ``notebook`` models
     - The ``format`` field is always ``"json"``.
@@ -105,7 +105,7 @@ model.  There are three model types: **notebook**, **file**, and **directory** .
 
 **Sample Models**
 
-.. sourcecode:: python
+.. code-block:: python
 
     # Notebook Model with Content
     {
@@ -214,6 +214,6 @@ ContentsManager.
    directories as SQL relations.  PGContents also provides an example of how to
    re-use the notebook's tests.
 
-.. _NBFormat: http://nbformat.readthedocs.org/en/latest/index.html
+.. _NBFormat: https://nbformat.readthedocs.io/en/latest/index.html
 .. _PGContents: https://github.com/quantopian/pgcontents
 .. _PostgreSQL: http://www.postgresql.org/

@@ -21,6 +21,7 @@ from tornado.ioloop import IOLoop
 import zmq
 
 import jupyter_core.paths
+from traitlets.config import Config
 from ..notebookapp import NotebookApp
 from ipython_genutils.tempdir import TemporaryDirectory
 
@@ -34,7 +35,7 @@ class TimeoutError(Exception):
 
 class NotebookTestBase(TestCase):
     """A base class for tests that need a running notebook.
-    
+
     This create some empty config and runtime directories
     and then starts the notebook server with them.
     """
@@ -60,7 +61,7 @@ class NotebookTestBase(TestCase):
                 return
 
         raise TimeoutError("The notebook server didn't start up correctly.")
-    
+
     @classmethod
     def wait_until_dead(cls):
         """Wait for the server process to terminate after shutdown"""
@@ -85,7 +86,9 @@ class NotebookTestBase(TestCase):
         cls.data_dir = data_dir
         cls.runtime_dir = TemporaryDirectory()
         cls.notebook_dir = TemporaryDirectory()
-        
+        config = cls.config or Config()
+        config.NotebookNotary.db_file = ':memory:'
+
         started = Event()
         def start_thread():
             app = cls.notebook = NotebookApp(
@@ -97,7 +100,9 @@ class NotebookTestBase(TestCase):
                 runtime_dir=cls.runtime_dir.name,
                 notebook_dir=cls.notebook_dir.name,
                 base_url=cls.url_prefix,
-                config=cls.config,
+                config=config,
+                allow_root=True,
+                token='',
             )
             # don't register signal handler during tests
             app.init_signal = lambda : None

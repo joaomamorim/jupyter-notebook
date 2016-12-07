@@ -96,7 +96,7 @@ define([
         this.tooltip = options.tooltip;
         this.config = options.config;
         this.class_config = new configmod.ConfigWithDefaults(this.config,
-                                        CodeCell.config_defaults, 'CodeCell');
+                                        CodeCell.options_default, 'CodeCell');
 
         // create all attributed in constructor function
         // even if null for V8 VM optimisation
@@ -108,7 +108,7 @@ define([
         this.completer = null;
 
         Cell.apply(this,[{
-            config: $.extend({}, CodeCell.options_default), 
+            config: options.config, 
             keyboard_manager: options.keyboard_manager, 
             events: this.events}]);
 
@@ -141,8 +141,6 @@ define([
         },
     };
 
-    CodeCell.config_defaults = CodeCell.options_default;
-
     CodeCell.msg_cells = {};
 
     CodeCell.prototype = Object.create(Cell.prototype);
@@ -171,6 +169,8 @@ define([
             if (that.keyboard_manager) {
                 that.keyboard_manager.enable();
             }
+
+            that.code_mirror.setOption('readOnly', !that.is_editable());
         });
         this.code_mirror.on('keydown', $.proxy(this.handle_keyevent,this));
         $(this.code_mirror.getInputField()).attr("spellcheck", "false");
@@ -340,6 +340,7 @@ define([
     CodeCell.prototype.get_callbacks = function () {
         var that = this;
         return {
+            clear_on_done: false,
             shell : {
                 reply : $.proxy(this._handle_execute_reply, this),
                 payload : {
@@ -349,13 +350,15 @@ define([
             },
             iopub : {
                 output : function() { 
+                    that.events.trigger('set_dirty.Notebook', {value: true});
                     that.output_area.handle_output.apply(that.output_area, arguments);
                 }, 
                 clear_output : function() { 
+                    that.events.trigger('set_dirty.Notebook', {value: true});
                     that.output_area.handle_clear_output.apply(that.output_area, arguments);
                 }, 
             },
-            input : $.proxy(this._handle_input_request, this)
+            input : $.proxy(this._handle_input_request, this),
         };
     };
     
@@ -476,6 +479,7 @@ define([
         var prompt_html = CodeCell.input_prompt_function(this.input_prompt_number, nline);
         // This HTML call is okay because the user contents are escaped.
         this.element.find('div.input_prompt').html(prompt_html);
+        this.events.trigger('set_dirty.Notebook', {value: true});
     };
 
 
@@ -531,7 +535,11 @@ define([
         var outputs = this.output_area.toJSON();
         data.outputs = outputs;
         data.metadata.trusted = this.output_area.trusted;
-        data.metadata.collapsed = this.output_area.collapsed;
+        if (this.output_area.collapsed) {
+            data.metadata.collapsed = this.output_area.collapsed;
+        } else {
+            delete data.metadata.collapsed;
+        }
         if (this.output_area.scroll_state === 'auto') {
             delete data.metadata.scrolled;
         } else {

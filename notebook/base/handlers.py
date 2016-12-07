@@ -20,9 +20,7 @@ except ImportError:
     from urlparse import urlparse # Py 2
 
 from jinja2 import TemplateNotFound
-from tornado import web
-
-from tornado import gen
+from tornado import web, gen, escape
 from tornado.log import app_log
 
 from notebook._sysinfo import get_sys_info
@@ -41,6 +39,12 @@ from notebook.services.security import csp_report_uri
 non_alphanum = re.compile(r'[^A-Za-z0-9]')
 
 sys_info = json.dumps(get_sys_info())
+
+def log():
+    if Application.initialized():
+        return Application.instance().log
+    else:
+        return app_log
 
 class AuthenticatedHandler(web.RequestHandler):
     """A RequestHandler with an authenticated user."""
@@ -81,6 +85,16 @@ class AuthenticatedHandler(web.RequestHandler):
             return 'anonymous'
         return self.login_handler.get_user(self)
 
+    def skip_check_origin(self):
+        """Ask my login_handler if I should skip the origin_check
+        
+        For example: in the default LoginHandler, if a request is token-authenticated,
+        origin checking should be skipped.
+        """
+        if self.login_handler is None or not hasattr(self.login_handler, 'should_check_origin'):
+            return False
+        return not self.login_handler.should_check_origin(self)
+
     @property
     def cookie_name(self):
         default_cookie_name = non_alphanum.sub('-', 'username-{}'.format(
@@ -100,6 +114,16 @@ class AuthenticatedHandler(web.RequestHandler):
         return self.settings.get('login_handler_class', None)
 
     @property
+    def token(self):
+        """Return the login token for this application, if any."""
+        return self.settings.get('token', None)
+
+    @property
+    def one_time_token(self):
+        """Return the one-time-use token for this application, if any."""
+        return self.settings.get('one_time_token', None)
+
+    @property
     def login_available(self):
         """May a user proceed to log in?
 
@@ -109,7 +133,7 @@ class AuthenticatedHandler(web.RequestHandler):
         """
         if self.login_handler is None:
             return False
-        return bool(self.login_handler.login_available(self.settings))
+        return bool(self.login_handler.get_login_available(self.settings))
 
 
 class IPythonHandler(AuthenticatedHandler):
@@ -133,10 +157,7 @@ class IPythonHandler(AuthenticatedHandler):
     @property
     def log(self):
         """use the IPython log by default, falling back on tornado's logger"""
-        if Application.initialized():
-            return Application.instance().log
-        else:
-            return app_log
+        return log()
 
     @property
     def jinja_template_vars(self):
@@ -161,7 +182,7 @@ class IPythonHandler(AuthenticatedHandler):
     
     @property
     def mathjax_config(self):
-        return self.settings.get('mathjax_config', 'TeX-AMS_HTML-full,Safe')
+        return self.settings.get('mathjax_config', 'TeX-AMS-MML_HTMLorMML-full,Safe')
 
     @property
     def base_url(self):
@@ -259,8 +280,9 @@ class IPythonHandler(AuthenticatedHandler):
         Copied from WebSocket with changes:
 
         - allow unspecified host/origin (e.g. scripts)
+        - allow token-authenticated requests
         """
-        if self.allow_origin == '*':
+        if self.allow_origin == '*' or self.skip_check_origin():
             return True
 
         host = self.request.headers.get("Host")
@@ -287,8 +309,8 @@ class IPythonHandler(AuthenticatedHandler):
             # No CORS headers deny the request
             allow = False
         if not allow:
-            self.log.warning("Blocking Cross Origin API request.  Origin: %s, Host: %s",
-                origin, host,
+            self.log.warning("Blocking Cross Origin API request for %s.  Origin: %s, Host: %s",
+                self.request.path, origin, host,
             )
         return allow
     
@@ -313,6 +335,7 @@ class IPythonHandler(AuthenticatedHandler):
             ws_url=self.ws_url,
             logged_in=self.logged_in,
             login_available=self.login_available,
+            token_available=bool(self.token or self.one_time_token),
             static_url=self.static_url,
             sys_info=sys_info,
             contents_js_source=self.contents_js_source,
@@ -339,6 +362,7 @@ class IPythonHandler(AuthenticatedHandler):
         exc_info = kwargs.get('exc_info')
         message = ''
         status_message = responses.get(status_code, 'Unknown HTTP Error')
+        exception = '(unknown)'
         if exc_info:
             exception = exc_info[1]
             # get the custom message, if defined
@@ -394,7 +418,7 @@ class APIHandler(IPythonHandler):
     def options(self, *args, **kwargs):
         self.set_header('Access-Control-Allow-Headers', 'accept, content-type')
         self.set_header('Access-Control-Allow-Methods',
-                        'GET, PUT, PATCH, DELETE, OPTIONS')
+                        'GET, PUT, POST, PATCH, DELETE, OPTIONS')
         self.finish()
 
 
@@ -412,7 +436,7 @@ class AuthenticatedFileHandler(IPythonHandler, web.StaticFileHandler):
         if os.path.splitext(path)[1] == '.ipynb':
             name = path.rsplit('/', 1)[-1]
             self.set_header('Content-Type', 'application/json')
-            self.set_header('Content-Disposition','attachment; filename="%s"' % name)
+            self.set_header('Content-Disposition','attachment; filename="%s"' % escape.url_escape(name))
         
         return web.StaticFileHandler.get(self, path)
     
@@ -529,6 +553,9 @@ class FileFindHandler(IPythonHandler, web.StaticFileHandler):
                 return ''
             
             cls._static_paths[path] = abspath
+            
+
+            log().debug("Path %s served from %s"%(path, abspath))
             return abspath
     
     def validate_absolute_path(self, root, absolute_path):
@@ -598,6 +625,17 @@ class FilesRedirectHandler(IPythonHandler):
     def get(self, path=''):
         return self.redirect_to_files(self, path)
 
+
+class RedirectWithParams(web.RequestHandler):
+    """Sam as web.RedirectHandler, but preserves URL parameters"""
+    def initialize(self, url, permanent=True):
+        self._url = url
+        self._permanent = permanent
+
+    def get(self):
+        sep = '&' if '?' in self._url else '?'
+        url = sep.join([self._url, self.request.query])
+        self.redirect(url, permanent=self._permanent)
 
 #-----------------------------------------------------------------------------
 # URL pattern fragments for re-use

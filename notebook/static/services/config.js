@@ -92,7 +92,7 @@ function(utils) {
     ConfigWithDefaults.prototype.get = function(key) {
         var that = this;
         return this.section.loaded.then(function() {
-            return that._class_data()[key] || that.defaults[key];
+            return that.get_sync(key);
         });
     };
     
@@ -101,7 +101,22 @@ function(utils) {
      * instead of waiting for it to load.
      */
     ConfigWithDefaults.prototype.get_sync = function(key) {
-        return this._class_data()[key] || this.defaults[key];
+        var data = this._class_data();
+        if (key === undefined) {
+            // no key specified, return full config data
+            return $.extend(true, {}, this.defaults, data);
+        }
+
+        var value = data[key];
+        if (value !== undefined) {
+            if (typeof value == 'object') {
+                // merge with defaults if it's an object
+                return $.extend(true, {}, this.defaults[key], value);
+            } else {
+                return value;
+            }
+        }
+        return this.defaults[key];
     };
     
     /**

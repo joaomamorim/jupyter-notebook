@@ -41,6 +41,7 @@ define([
         this.username = "username";
         this.session_id = utils.uuid();
         this._msg_callbacks = {};
+        this._display_id_to_parent_ids = {};
         this._msg_queue = Promise.resolve();
         this.info_reply = {}; // kernel_info_reply stored here after starting
 
@@ -129,7 +130,7 @@ define([
      * @function init_iopub_handlers
      */
     Kernel.prototype.init_iopub_handlers = function () {
-        var output_msg_types = ['stream', 'display_data', 'execute_result', 'error'];
+        var output_msg_types = ['stream', 'display_data', 'execute_result', 'error', 'update_display_data'];
         this._iopub_handlers = {};
         this.register_iopub_handler('status', $.proxy(this._handle_status_message, this));
         this.register_iopub_handler('clear_output', $.proxy(this._handle_clear_output, this));
@@ -299,6 +300,8 @@ define([
          */
         this.events.trigger('kernel_restarting.Kernel', {kernel: this});
         this.stop_channels();
+        this._msg_callbacks = {};
+        this._display_id_to_parent_ids = {};
 
         var that = this;
         var on_success = function (data, status, xhr) {
@@ -338,7 +341,7 @@ define([
          * @function reconnect
          */
         if (this.is_connected()) {
-            return;
+            this.stop_channels();
         }
         this._reconnect_attempt = this._reconnect_attempt + 1;
         this.events.trigger('kernel_reconnecting.Kernel', {
@@ -450,7 +453,7 @@ define([
         var ws_host_url = this.ws_url + this.kernel_url;
 
         console.log("Starting WebSockets:", ws_host_url);
-        
+
         this.ws = new this.WebSocket([
                 that.ws_url,
                 utils.url_path_join(that.kernel_url, 'channels'),
@@ -534,8 +537,13 @@ define([
 
         this.events.trigger('kernel_disconnected.Kernel', {kernel: this});
         if (error) {
-            console.log('WebSocket connection failed: ', ws_url);
-            this.events.trigger('kernel_connection_failed.Kernel', {kernel: this, ws_url: ws_url, attempt: this._reconnect_attempt});
+            console.log('WebSocket connection failed: ', ws_url, error);
+            this.events.trigger('kernel_connection_failed.Kernel', {
+                kernel: this,
+                ws_url: ws_url,
+                attempt: this._reconnect_attempt,
+                error: error,
+            });
         }
         this._schedule_reconnect();
     };
@@ -626,7 +634,7 @@ define([
         } else {
             this._pending_messages.push(msg);
         }
-    }
+    };
     
     Kernel.prototype.send_shell_message = function (msg_type, content, callbacks, metadata, buffers) {
         /**
@@ -638,8 +646,8 @@ define([
          */
         var msg = this._get_msg(msg_type, content, metadata, buffers);
         msg.channel = 'shell';
-        this._send(serialize.serialize(msg));
         this.set_callbacks_for_msg(msg.header.msg_id, callbacks);
+        this._send(serialize.serialize(msg));
         return msg.header.msg_id;
     };
 
@@ -652,7 +660,7 @@ define([
          *
          * When calling this method, pass a callback function that expects one argument.
          * The callback will be passed the complete `kernel_info_reply` message documented
-         * [here](http://ipython.org/ipython-doc/dev/development/messaging.html#kernel-info)
+         * [here](https://jupyter-client.readthedocs.io/en/latest/messaging.html#kernel-info)
          */
         var callbacks;
         if (callback) {
@@ -670,7 +678,7 @@ define([
          *
          * When calling this method, pass a callback function that expects one argument.
          * The callback will be passed the complete `comm_info_reply` message documented
-         * [here](http://ipython.org/ipython-doc/dev/development/messaging.html#comm_info)
+         * [here](https://jupyter-client.readthedocs.io/en/latest/messaging.html#comm_info)
          */
         var callbacks;
         if (callback) {
@@ -688,7 +696,7 @@ define([
          *
          * When calling this method, pass a callback function that expects one argument.
          * The callback will be passed the complete `inspect_reply` message documented
-         * [here](http://ipython.org/ipython-doc/dev/development/messaging.html#object-information)
+         * [here](https://jupyter-client.readthedocs.io/en/latest/messaging.html#object-information)
          *
          * @function inspect
          * @param code {string}
@@ -721,6 +729,7 @@ define([
          *      @param callbacks.iopub.output {function}
          *      @param callbacks.iopub.clear_output {function}
          *      @param callbacks.input {function}
+         *      @param callbacks.clear_on_done=true {Bolean}
          * @param {object} [options]
          *      @param [options.silent=false] {Boolean}
          *      @param [options.user_expressions=empty_dict] {Dict}
@@ -779,7 +788,7 @@ define([
      * `complete_reply` message as its only argument when it arrives.
      *
      * `complete_reply` is documented
-     * [here](http://ipython.org/ipython-doc/dev/development/messaging.html#complete)
+     * [here](https://jupyter-client.readthedocs.io/en/latest/messaging.html#complete)
      *
      * @function complete
      * @param code {string}
@@ -848,6 +857,25 @@ define([
      */
     Kernel.prototype.clear_callbacks_for_msg = function (msg_id) {
         if (this._msg_callbacks[msg_id] !== undefined ) {
+            var callbacks = this._msg_callbacks[msg_id];
+            var kernel = this;
+            // clear display_id:msg_id map for display_ids associated with this msg_id
+            if (!callbacks) return;
+            callbacks.display_ids.map(function (display_id) {
+                var msg_ids = kernel._display_id_to_parent_ids[display_id];
+                if (msg_ids) {
+                    var idx = msg_ids.indexOf(msg_id);
+                    if (idx === -1) {
+                        return;
+                    }
+                    if (msg_ids.length === 1) {
+                        delete kernel._display_id_to_parent_ids[display_id];
+                    } else {
+                        msg_ids.splice(idx, 1);
+                        kernel._display_id_to_parent_ids[display_id] = msg_ids;
+                    }
+                }
+            });
             delete this._msg_callbacks[msg_id];
         }
     };
@@ -859,7 +887,7 @@ define([
         var callbacks = this._msg_callbacks[msg_id];
         if (callbacks !== undefined) {
             callbacks.shell_done = true;
-            if (callbacks.iopub_done) {
+            if (callbacks.clear_on_done && callbacks.iopub_done) {
                 this.clear_callbacks_for_msg(msg_id);
             }
         }
@@ -872,7 +900,7 @@ define([
         var callbacks = this._msg_callbacks[msg_id];
         if (callbacks !== undefined) {
             callbacks.iopub_done = true;
-            if (callbacks.shell_done) {
+            if (callbacks.clear_on_done && callbacks.shell_done) {
                 this.clear_callbacks_for_msg(msg_id);
             }
         }
@@ -895,8 +923,14 @@ define([
             cbcopy.shell = callbacks.shell;
             cbcopy.iopub = callbacks.iopub;
             cbcopy.input = callbacks.input;
+            cbcopy.clear_on_done = callbacks.clear_on_done;
             cbcopy.shell_done = (!callbacks.shell);
             cbcopy.iopub_done = (!callbacks.iopub);
+            cbcopy.display_ids = [];
+            if (callbacks.clear_on_done === undefined) {
+                // default to clear-on-done
+                cbcopy.clear_on_done = true;
+            }
         } else {
             this.last_msg_callbacks = {};
         }
@@ -1042,7 +1076,51 @@ define([
      * @function _handle_output_message
      */
     Kernel.prototype._handle_output_message = function (msg) {
-        var callbacks = this.get_callbacks_for_msg(msg.parent_header.msg_id);
+        var that = this;
+        var msg_id = msg.parent_header.msg_id;
+        var callbacks = this.get_callbacks_for_msg(msg_id);
+        if (['display_data', 'update_display_data', 'execute_result'].indexOf(msg.header.msg_type) > -1) {
+            // display_data messages may re-route based on their display_id
+            var display_id = (msg.content.transient || {}).display_id;
+            if (display_id) {
+                // it has a display_id
+                var parent_ids = this._display_id_to_parent_ids[display_id];
+                if (parent_ids) {
+                    // we've seen it before, update existing outputs with same display_id
+                    // by handling display_data as update_display_data
+                    var update_msg = $.extend(true, {}, msg);
+                    update_msg.header.msg_type = 'update_display_data';
+
+                    parent_ids.map(function (parent_id) {
+                        var callbacks = that.get_callbacks_for_msg(parent_id);
+                        if (!callbacks) return;
+                        var callback = callbacks.iopub.output;
+                        if (callback) {
+                            callback(update_msg);
+                        }
+                    });
+                }
+                // we're done here if it's update_display
+                if (msg.header.msg_type === 'update_display_data') {
+                    // it's an update, don't proceed to the normal display
+                    return;
+                }
+                // regular display_data with id, record it for future updating
+                // in _display_id_to_parent_ids for future lookup
+                if (this._display_id_to_parent_ids[display_id] === undefined) {
+                    this._display_id_to_parent_ids[display_id] = [];
+                }
+                if (this._display_id_to_parent_ids[display_id].indexOf(msg_id) === -1) {
+                    this._display_id_to_parent_ids[display_id].push(msg_id);
+                }
+                // and in callbacks for cleanup on clear_callbacks_for_msg
+                if (callbacks && callbacks.display_ids.indexOf(display_id) === -1) {
+                    callbacks.display_ids.push(display_id);
+                }
+            }
+        }
+
+
         if (!callbacks || !callbacks.iopub) {
             // The message came from another client. Let the UI decide what to
             // do with it.

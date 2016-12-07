@@ -444,13 +444,30 @@ define([
     // Remove chunks that should be overridden by the effect of
     // carriage return characters
     function fixCarriageReturn(txt) {
+        txt = txt.replace(/\r+\n/gm, '\n'); // \r followed by \n --> newline
+        while (txt.search(/\r/g) > -1) {
+            var base = txt.match(/^.*\r+/m)[0].replace(/\r/, '');
+            var insert = txt.match(/\r+.*$/m)[0].replace(/\r/, '');
+            insert = insert + base.slice(insert.length, base.length);
+            txt = txt.replace(/\r+.*$/m, '\r').replace(/^.*\r+/m, insert);
+        }
+        return txt;
+    }
+
+    // Remove characters that are overridden by backspace characters
+    function fixBackspace(txt) {
         var tmp = txt;
         do {
             txt = tmp;
-            tmp = txt.replace(/\r+\n/gm, '\n'); // \r followed by \n --> newline
-            tmp = tmp.replace(/^.*\r+/gm, '');  // Other \r --> clear line
+            // Cancel out anything-but-newline followed by backspace
+            tmp = txt.replace(/[^\n]\x08/gm, '');
         } while (tmp.length < txt.length);
         return txt;
+    }
+
+    // Remove characters overridden by backspace and carriage return
+    function fixOverwrittenChars(txt) {
+        return fixCarriageReturn(fixBackspace(txt));
     }
 
     // Locate any URLs and convert them to a anchor tag
@@ -972,6 +989,8 @@ define([
         uuid : uuid,
         fixConsole : fixConsole,
         fixCarriageReturn : fixCarriageReturn,
+        fixBackspace : fixBackspace,
+        fixOverwrittenChars: fixOverwrittenChars,
         autoLinkUrls : autoLinkUrls,
         points_to_pixels : points_to_pixels,
         get_body_data : get_body_data,

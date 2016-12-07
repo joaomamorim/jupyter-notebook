@@ -45,6 +45,12 @@ parameters:
     in: path
     description: Name of config section
     type: string
+  terminal_id:
+    name: terminal_id
+    required: true
+    in: path
+    description: ID of terminal session
+    type: string
 
 paths:
   /contents/{path}:
@@ -349,7 +355,7 @@ paths:
           schema:
             $ref: '#/definitions/Session'
     patch:
-      summary: "This can be used to rename the notebook, or move it to a new directory."
+      summary: "This can be used to rename the session."
       tags:
         - sessions
       parameters:
@@ -357,15 +363,7 @@ paths:
           in: body
           required: true
           schema:
-            type: object
-            properties:
-              notebook:
-                type: object
-                properties:
-                  path:
-                    type: string
-                    format: path
-                    description: new path for notebook
+            $ref: '#definitions/Session'
       responses:
         200:
           description: Session
@@ -395,29 +393,14 @@ paths:
             items:
               $ref: '#/definitions/Session'
     post:
-      summary: "Create a new session, or return an existing session if a session for the notebook path already exists"
+      summary: "Create a new session, or return an existing session if a session of the same name already exists"
       tags:
         - sessions
       parameters:
         - name: session
           in: body
           schema:
-            type: object
-            properties:
-              notebook:
-                type: object
-                required:
-                  - path
-                properties:
-                  path:
-                    type: string
-                    description: path to notebook file
-              kernel:
-                type: object
-                properties:
-                  name:
-                    type: string
-                    description: "Kernel spec name, defaults to default kernel spec"
+            $ref: '#definitions/Session'
       responses:
         201:
           description: Session created or returned
@@ -429,7 +412,7 @@ paths:
               type: string
               format: url
         501:
-          description: Kernel not available
+          description: Session not available
           schema:
             type: object
             description: error message
@@ -566,6 +549,73 @@ paths:
           description: Configuration object
           schema:
             type: object
+            items:
+              $ref: '#/parameters/section_name'
+
+  /terminals:
+    get:
+      summary: Get available terminals
+      tags:
+        - terminals
+      responses:
+        200:
+          description: A list of all available terminal ids.
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Terminal_ID'
+        403:
+          description: Forbidden to access
+        404:
+          description: Not found
+
+    post:
+      summary: Create a new terminal
+      tags:
+        - terminals
+      responses:
+        200:
+          description: Succesfully created a new terminal
+          schema:
+            $ref: '#/definitions/Terminal_ID'
+        403:
+          description: Forbidden to access
+        404:
+          description: Not found
+
+  /terminals/{terminal_id}:
+    get:
+      summary: Get a terminal session corresponding to an id.
+      tags:
+        - terminals
+      parameters:
+        - $ref: '#/parameters/terminal_id'
+      responses:
+        200:
+          description: Terminal session with given id
+          schema:
+            $ref: '#/definitions/Terminal_ID'
+        403:
+          description: Forbidden to access
+        404:
+          description: Not found
+
+    delete:
+      summary: Delete a terminal session corresponding to an id.
+      tags:
+        - terminals
+      parameters:
+        - $ref: '#/parameters/terminal_id'
+      responses:
+        204:
+          description: Succesfully deleted terminal session
+        403:
+          description: Forbidden to access
+        404:
+          description: Not found
+
+
+
 
 definitions:
   KernelSpec:
@@ -654,12 +704,15 @@ definitions:
       id:
         type: string
         format: uuid
-      notebook:
-        type: object
-        properties:
-          path:
-            type: string
-            description: path to notebook
+      path:
+        type: string
+        description: path to the session
+      name:
+        type: string
+        description: name of the session
+      type:
+        type: string
+        description: session type
       kernel:
         $ref: '#/definitions/Kernel'
   Contents:
@@ -723,3 +776,12 @@ definitions:
         type: string
         description: Last modified timestamp
         format: dateTime
+  Terminal_ID:
+    description: A Terminal_ID object
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: name of terminal ID

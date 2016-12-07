@@ -121,17 +121,11 @@ def find_package_data():
     for app in ['auth', 'edit', 'notebook', 'terminal', 'tree']:
         static_data.extend([
             pjoin('static', app, 'js', 'built', '*main.min.js'),
-            pjoin('static', app, 'js', 'built', '*main.min.js.map'),
         ])
     static_data.extend([
         pjoin('static', 'built', '*index.js'),
-        pjoin('static', 'built', '*index.js.map'),
         pjoin('static', 'services', 'built', '*contents.js'),
-        pjoin('static', 'services', 'built', '*contents.js.map'),
     ])
-    
-    # Add the Lab page contents
-    static_data.append(pjoin('lab', 'build', '*'))
 
     components = pjoin("static", "components")
     # select the components we actually need to install
@@ -141,7 +135,6 @@ def find_package_data():
         pjoin(components, "bootstrap", "js", "bootstrap.min.js"),
         pjoin(components, "bootstrap-tour", "build", "css", "bootstrap-tour.min.css"),
         pjoin(components, "bootstrap-tour", "build", "js", "bootstrap-tour.min.js"),
-        pjoin(components, "es6-promise", "*.js"),
         pjoin(components, "font-awesome", "css", "*.css"),
         pjoin(components, "font-awesome", "fonts", "*.*"),
         pjoin(components, "google-caja", "html-css-sanitizer-minified.js"),
@@ -154,9 +147,6 @@ def find_package_data():
         pjoin(components, "marked", "lib", "marked.js"),
         pjoin(components, "requirejs", "require.js"),
         pjoin(components, "underscore", "underscore-min.js"),
-        pjoin(components, "moment", "moment.js"),
-        pjoin(components, "moment", "min", "moment.min.js"),
-        pjoin(components, "term.js", "src", "term.js"),
         pjoin(components, "text-encoding", "lib", "encoding.js"),
     ])
 
@@ -170,7 +160,7 @@ def find_package_data():
     mj = lambda *path: pjoin(components, 'MathJax', *path)
     static_data.extend([
         mj('MathJax.js'),
-        mj('config', 'TeX-AMS_HTML-full.js'),
+        mj('config', 'TeX-AMS-MML_HTMLorMML-full.js'),
         mj('config', 'Safe.js'),
     ])
     
@@ -205,6 +195,7 @@ def find_package_data():
     package_data = {
         'notebook' : ['templates/*'] + static_data,
         'notebook.tests' : js_tests,
+        'notebook.bundler.tests': ['resources/*', 'resources/*/*', 'resources/*/*/.*'],
     }
     
     return package_data
@@ -217,9 +208,7 @@ def check_package_data(package_data):
         pkg_root = pjoin(*pkg.split('.'))
         for d in data:
             path = pjoin(pkg_root, d)
-            if 'lab/build' in path:  # Do not verify lab install yet
-                continue
-            elif '*' in path:
+            if '*' in path:
                 assert len(glob(path)) > 0, "No files match pattern %s" % path
             else:
                 assert os.path.exists(path), "Missing package data: %s" % path
@@ -365,7 +354,6 @@ class JavascriptDependencies(Command):
     
     bower_dir = pjoin(static, 'components')
     node_modules = pjoin(repo_root, 'node_modules')
-    lab_dir = pjoin(repo_root, 'notebook', 'lab')
     
     def run(self):
         npm_install(repo_root)
@@ -376,12 +364,6 @@ class JavascriptDependencies(Command):
             print("Failed to run `npm run bower`: %s" % e, file=sys.stderr)
             print("You can install js dependencies with `npm install`", file=sys.stderr)
             raise
-
-        try:
-            npm_install(self.lab_dir)
-            run(['npm', 'run', 'build'], cwd=self.lab_dir)
-        except Exception as e:
-            print("Failed to install JupyterLab`: %s" % e, file=sys.stderr)
 
         # update package data in case this created new files
         update_package_data(self.distribution)

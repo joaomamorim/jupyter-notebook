@@ -7,6 +7,7 @@ Preliminary documentation at https://github.com/ipython/ipython/wiki/IPEP-16%3A-
 # Distributed under the terms of the Modified BSD License.
 
 import json
+import os
 
 from tornado import gen, web
 
@@ -18,8 +19,8 @@ from jupyter_client.kernelspec import NoSuchKernel
 
 class SessionRootHandler(APIHandler):
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def get(self):
         # Return a list of running sessions
@@ -27,31 +28,42 @@ class SessionRootHandler(APIHandler):
         sessions = yield gen.maybe_future(sm.list_sessions())
         self.finish(json.dumps(sessions, default=date_default))
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def post(self):
         # Creates a new session
-        #(unless a session already exists for the named nb)
+        #(unless a session already exists for the named session)
         sm = self.session_manager
 
         model = self.get_json_body()
         if model is None:
             raise web.HTTPError(400, "No JSON data provided")
-        try:
-            path = model['notebook']['path']
-        except KeyError:
-            raise web.HTTPError(400, "Missing field in JSON data: notebook.path")
 
+        if 'notebook' in model and 'path' in model['notebook']:
+            self.log.warn('Sessions API changed, see updated swagger docs')
+            model['path'] = model['notebook']['path']
+            model['type'] = 'notebook'
+
+        try:
+            path = model['path']
+        except KeyError:
+            raise web.HTTPError(400, "Missing field in JSON data: path")
+
+        try:
+            mtype = model['type']
+        except KeyError:
+            raise web.HTTPError(400, "Missing field in JSON data: type")
+
+        name = model.get('name', None)
         kernel = model.get('kernel', {})
-        kernel_name = kernel.get('name') or None
-        kernel_id = kernel.get('id') or None
+        kernel_name = kernel.get('name', None)
+        kernel_id = kernel.get('id', None)
 
         if not kernel_id and not kernel_name:
             self.log.debug("No kernel specified, using default kernel")
             kernel_name = None
 
-        # Check to see if session exists
         exists = yield gen.maybe_future(sm.session_exists(path=path))
         if exists:
             model = yield gen.maybe_future(sm.get_session(path=path))
@@ -59,7 +71,8 @@ class SessionRootHandler(APIHandler):
             try:
                 model = yield gen.maybe_future(
                     sm.create_session(path=path, kernel_name=kernel_name,
-                                      kernel_id=kernel_id))
+                                      kernel_id=kernel_id, name=name,
+                                      type=mtype))
             except NoSuchKernel:
                 msg = ("The '%s' kernel is not available. Please pick another "
                        "suitable kernel instead, or install that kernel." % kernel_name)
@@ -77,8 +90,8 @@ class SessionRootHandler(APIHandler):
 
 class SessionHandler(APIHandler):
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def get(self, session_id):
         # Returns the JSON model for a single session
@@ -86,13 +99,13 @@ class SessionHandler(APIHandler):
         model = yield gen.maybe_future(sm.get_session(session_id=session_id))
         self.finish(json.dumps(model, default=date_default))
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def patch(self, session_id):
         """Patch updates sessions:
 
-        - notebook.path updates session to track renamed notebooks
+        - path updates session to track renamed paths
         - kernel.name starts a new kernel with a given kernelspec
         """
         sm = self.session_manager
@@ -105,10 +118,16 @@ class SessionHandler(APIHandler):
         before = yield gen.maybe_future(sm.get_session(session_id=session_id))
 
         changes = {}
-        if 'notebook' in model:
-            notebook = model['notebook']
-            if notebook.get('path') is not None:
-                changes['path'] = notebook['path']
+        if 'notebook' in model and 'path' in model['notebook']:
+            self.log.warn('Sessions API changed, see updated swagger docs')
+            model['path'] = model['notebook']['path']
+            model['type'] = 'notebook'
+        if 'path' in model:
+            changes['path'] = model['path']
+        if 'name' in model:
+            changes['name'] = model['name']
+        if 'type' in model:
+            changes['type'] = model['type']
         if 'kernel' in model:
             # Kernel id takes precedence over name.
             if model['kernel'].get('id') is not None:
@@ -119,7 +138,8 @@ class SessionHandler(APIHandler):
             elif model['kernel'].get('name') is not None:
                 kernel_name = model['kernel']['name']
                 kernel_id = yield sm.start_kernel_for_session(
-                    session_id, kernel_name=kernel_name, path=before['notebook']['path'])
+                    session_id, kernel_name=kernel_name, name=before['name'],
+                    path=before['path'], type=before['type'])
                 changes['kernel_id'] = kernel_id
 
         yield gen.maybe_future(sm.update_session(session_id, **changes))
@@ -133,8 +153,8 @@ class SessionHandler(APIHandler):
             )
         self.finish(json.dumps(model, default=date_default))
 
-    @web.authenticated
     @json_errors
+    @web.authenticated
     @gen.coroutine
     def delete(self, session_id):
         # Deletes the session with given session_id

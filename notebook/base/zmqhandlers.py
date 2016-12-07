@@ -126,20 +126,18 @@ class WebSocketMixin(object):
         
         Tornado >= 4 calls this method automatically, raising 403 if it returns False.
         """
-        if self.allow_origin == '*':
+
+        if self.allow_origin == '*' or (
+            hasattr(self, 'skip_check_origin') and self.skip_check_origin()):
             return True
 
         host = self.request.headers.get("Host")
         if origin is None:
             origin = self.get_origin()
         
-        # If no header is provided, assume we can't verify origin
-        if origin is None:
-            self.log.warning("Missing Origin header, rejecting WebSocket connection.")
-            return False
-        if host is None:
-            self.log.warning("Missing Host header, rejecting WebSocket connection.")
-            return False
+        # If no origin or host header is provided, assume from script
+        if origin is None or host is None:
+            return True
         
         origin = origin.lower()
         origin_host = urlparse(origin).netloc

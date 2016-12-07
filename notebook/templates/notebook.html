@@ -102,9 +102,14 @@ data-notebook-path="{{notebook_path | urlencode}}"
                         </li>
                         <li class="divider"></li>
                         <li id="print_preview"><a href="#">Print Preview</a></li>
+
                         <li id="download_ipynb"><a href="#">Download Notebook</a></li>
                         <!-- <li id=><a href="#">Download as</a>
                             <ul class="dropdown-menu">
+=======
+                        <li class="dropdown-submenu"><a href="#">Download as</a>
+                            <ul id="download_menu" class="dropdown-menu">
+>>>>>>> upstream/master
                                 <li id="download_ipynb"><a href="#">Notebook (.ipynb)</a></li>
                                 <li id="download_script"><a href="#">Script</a></li>
                                 <li id="download_html"><a href="#">HTML (.html)</a></li>
@@ -112,7 +117,12 @@ data-notebook-path="{{notebook_path | urlencode}}"
                                 <li id="download_rst"><a href="#">reST (.rst)</a></li>
                                 <li id="download_pdf"><a href="#">PDF via LaTeX (.pdf)</a></li>
                             </ul>
+<<<<<<< HEAD
                         </li> -->
+                        </li>
+                        <li class="dropdown-submenu hidden"><a href="#">Deploy as</a>
+                            <ul id="deploy_menu" class="dropdown-menu"></ul>
+                        </li>
                         <li class="divider"></li>
                         <li id="trust_notebook"
                             title="Trust the output of this notebook">
@@ -155,10 +165,16 @@ data-notebook-path="{{notebook_path | urlencode}}"
                     <ul id="view_menu" class="dropdown-menu">
                         <li id="toggle_header"
                             title="Show/Hide the logo and notebook title (above menu bar)">
-                            <a href="#">Toggle Header</a></li>
+                            <a href="#">Toggle Header</a>
+                        </li>
                         <li id="toggle_toolbar"
                             title="Show/Hide the action icons (below menu bar)">
-                            <a href="#">Toggle Toolbar</a></li>
+                            <a href="#">Toggle Toolbar</a>
+                        </li>
+                        <li id="toggle_line_numbers"
+                            title="Show/Hide line numbers in cells">
+                            <a href="#">Toggle Line Numbers</a>
+                        </li>
                         <li id="menu-cell-toolbar" class="dropdown-submenu">
                             <a href="#">Cell Toolbar</a>
                             <ul class="dropdown-menu" id="menu-cell-toolbar-submenu"></ul>

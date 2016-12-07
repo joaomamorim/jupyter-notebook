@@ -1,16 +1,18 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 __webpack_public_path__ = window['staticURL'] + 'terminal/js/built/';
+require('xterm/src/xterm.css');
 
-requirejs(['termjs'], function(termjs) {
 require([
     'base/js/utils',
     'base/js/page',
+    'auth/js/loginwidget',
     'services/config',
     'terminal/js/terminado',
 ], function(
     utils,
     page,
+    loginwidget,
     configmod,
     terminado
     ){
@@ -18,12 +20,16 @@ require([
     requirejs(['custom/custom'], function() {});
     page = new page.Page();
 
-    var config = new configmod.ConfigSection('terminal', 
-                                    {base_url: utils.get_body_data('baseUrl')});
+    var common_options = {
+        base_url : utils.get_body_data("baseUrl"),
+    };
+
+    var config = new configmod.ConfigSection('terminal', common_options);
     config.load();
-    var common_config = new configmod.ConfigSection('common', 
-                                    {base_url: utils.get_body_data('baseUrl')});
+    var common_config = new configmod.ConfigSection('common', common_options);
     common_config.load();
+
+    var login_widget = new loginwidget.LoginWidget('span#login_widget', common_options);
 
     // Test size: 25x80
     var termRowHeight = function(){ return 1.00 * $("#dummy-screen")[0].offsetHeight / 25;};
@@ -32,8 +38,12 @@ require([
 
     var base_url = utils.get_body_data('baseUrl');
     var ws_path = utils.get_body_data('wsPath');
-    var ws_url = location.protocol.replace('http', 'ws') + "//" + location.host
-                                    + base_url + ws_path;
+    var ws_url = utils.get_body_data('wsUrl');
+    if (!ws_url) {
+        // trailing 's' in https will become wss for secure web sockets
+        ws_url = location.protocol.replace('http', 'ws') + "//" + location.host;
+    }
+    ws_url = ws_url + base_url + ws_path;
     
     var header = $("#header")[0];
 
@@ -66,5 +76,4 @@ require([
     // Expose terminal for fiddling with in the browser
     window.terminal = terminal;
 
-});
 });
